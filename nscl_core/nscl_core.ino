@@ -1,5 +1,5 @@
 /*******************************************************************************
-* Copyright 2019 SEOULTECH CO., LTD.
+* Copyright 2018 SEOULTECH CO., LTD.
 *
 * Licensed under the Apache License, Version 2.0 (the "License");
 * you may not use this file except in compliance with the License.
@@ -47,9 +47,6 @@ void setup()
 
     // Setting for IMU
     sensors.init();
-
-    // Initialization for LED, voltage check, Button in OpenCR, which the sources exist in the zetabank_ros_lib
-    diagnosis.init();
 
     // Setting for SLAM and navigation (odometry, joint states, TF)
     initOdom();
@@ -123,8 +120,6 @@ void loop()
         updateGyroCali();
 
         // Update Voltage check
-        battery_state = diagnosis.updateVoltageCheck(setup_end);
-
     }
     else
     {
@@ -132,8 +127,6 @@ void loop()
 
     }
 
-    diagnosis.showLedStatus(nh.connected());    // Show LED status and check the ROS connection
-      
     // Call all the callbacks waiting to be called at that point in time
     nh.spinOnce();
 
@@ -935,8 +928,6 @@ void network_disconnect()
     // Check the obstacle using Ultrasonic sensors
     ultrasonic_check();
 
-    // Update Voltage check
-    battery_state = diagnosis.updateVoltageCheck(setup_end);
 }
 
 void resetGoalVelocity()

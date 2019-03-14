@@ -1,5 +1,5 @@
 /*******************************************************************************
-* Copyright 2018 SEOULTECH CO., LTD.
+* Copyright 2016 ROBOTIS CO., LTD.
 *
 * Licensed under the Apache License, Version 2.0 (the "License");
 * you may not use this file except in compliance with the License.
@@ -14,37 +14,39 @@
 * limitations under the License.
 *******************************************************************************/
 
-/* Authors: Geonhee Lee */
+/* Authors: Yoonseok Pyo, Leon Jung, Darby Lim, HanCheol Cho */
 
-#ifndef NSCL_CORE_CONFIG_H_
-#define NSCL_CORE_CONFIG_H_
+#ifndef TURTLEBOT3_CORE_CONFIG_H_
+#define TURTLEBOT3_CORE_CONFIG_H_
 
 #include <ros.h>
 #include <ros/time.h>
-#include <std_msgs/Empty.h>
 #include <std_msgs/Bool.h>
+#include <std_msgs/Empty.h>
 #include <std_msgs/Int32.h>
-#include <std_msgs/Float64.h>
-
-#include <sensor_msgs/Range.h>
-#include <sensor_msgs/JointState.h>
 #include <sensor_msgs/Imu.h>
+#include <sensor_msgs/JointState.h>
 #include <sensor_msgs/BatteryState.h>
 #include <sensor_msgs/MagneticField.h>
-#include <diagnostic_msgs/DiagnosticArray.h>
 #include <geometry_msgs/Vector3.h>
 #include <geometry_msgs/Twist.h>
 #include <tf/tf.h>
 #include <tf/transform_broadcaster.h>
 #include <nav_msgs/Odometry.h>
 
-#include <nscl_msgs/SensorState.h>
-#include <nscl_msgs/VersionInfo.h>
+#include <turtlebot3_msgs/SensorState.h>
+#include <turtlebot3_msgs/Sound.h>
+#include <turtlebot3_msgs/VersionInfo.h>
 
-#include <NSCL.h>
+#include <TurtleBot3.h>
 
 #include <math.h>
 
+#define INIT_LOG_DATA "This core(v1.1.2) is compatible with TB3 Waffle or Waffle Pi"
+
+#define HARDWARE_VER "1.0.0"
+#define SOFTWARE_VER "1.0.0"
+#define FIRMWARE_VER "1.1.2"
 
 #define CONTROL_MOTOR_SPEED_PERIOD          30   //hz
 #define IMU_PUBLISH_PERIOD                  200  //hz
@@ -53,8 +55,10 @@
 #define VERSION_INFORMATION_PUBLISH_PERIOD  1    //hz 
 
 #define WHEEL_NUM                        2
-#define WHEEL_RADIUS                     0.0812           // meter
-#define WHEEL_SEPARATION                 0.360           // meter (BURGER : 0.160, WAFFLE : 0.287, zetabank : 0.360)
+#define WHEEL_RADIUS                     0.033           // meter
+#define WHEEL_SEPARATION                 0.287           // meter (BURGER : 0.160, WAFFLE : 0.287)
+#define TURNING_RADIUS                   0.1435          // meter (BURGER : 0.080, WAFFLE : 0.1435)
+#define ROBOT_RADIUS                     0.220           // meter (BURGER : 0.105, WAFFLE : 0.220)
 #define ENCODER_MIN                      -2147483648     // raw
 #define ENCODER_MAX                      2147483648      // raw
 
@@ -64,33 +68,29 @@
 #define LINEAR                           0
 #define ANGULAR                          1
 
-#define MAX_LINEAR_VELOCITY              2.0   // m/s   (BURGER : 0.22, WAFFLE : 0.25)
-#define MAX_ANGULAR_VELOCITY             2.0   // rad/s (BURGER : 2.84, WAFFLE : 1.82)
+#define MAX_LINEAR_VELOCITY              0.25   // m/s   (BURGER : 0.22, WAFFLE : 0.25)
+#define MAX_ANGULAR_VELOCITY             1.82   // rad/s (BURGER : 2.84, WAFFLE : 1.82)
 
-#define TICK2RAD                         0.000255603  // (0.02929[deg] * 3.14159265359 / 180) /2(pully_) = 0.000511207f(rad)
+#define TICK2RAD                         0.001533981  // 0.087890625[deg] * 3.14159265359 / 180 = 0.001533981f
 
 #define DEG2RAD(x)                       (x * 0.01745329252)  // *PI/180
 #define RAD2DEG(x)                       (x * 57.2957795131)  // *180/PI
 
+#define TEST_DISTANCE                    0.300     // meter
+#define TEST_RADIAN                      3.14      // 180 degree
+
 #define VELOCITY_UNIT                    2
-
-#define LINEAR_X_MAX_VELOCITY            1.5
-
-#define PI 3.141592f
-#define FORWARD_DIR true
-#define BACKWARD_DIR false
-#define STOP 2
-
-#define MIN(X,Y) ((X) < (Y) ? (X) : (Y))  
-#define MAX(X,Y) ((X) > (Y) ? (X) : (Y))  
 
 // Callback function prototypes
 void commandVelocityCallback(const geometry_msgs::Twist& cmd_vel_msg);
+void soundCallback(const turtlebot3_msgs::Sound& sound_msg);
+void motorPowerCallback(const std_msgs::Bool& power_msg);
 void resetCallback(const std_msgs::Empty& reset_msg);
 
 // Function prototypes
 void publishCmdVelFromRC100Msg(void);
 void publishImuMsg(void);
+void publishMagMsg(void);
 void publishSensorStateMsg(void);
 void publishVersionInfoMsg(void);
 void publishBatteryStateMsg(void);
@@ -100,6 +100,7 @@ ros::Time rosNow(void);
 ros::Time addMicros(ros::Time & t, uint32_t _micros);
 
 void updateVariable(void);
+void updateMotorInfo(int32_t left_tick, int32_t right_tick);
 void updateTime(void);
 void updateOdometry(void);
 void updateJoint(void);
@@ -112,6 +113,8 @@ void initJointStates(void);
 
 bool calcOdometry(double diff_time);
 
+void sendLogMsg(void);
+void melody(uint16_t* note, uint8_t note_num, uint8_t* durations);
 
 /*******************************************************************************
 * ROS NodeHandle
@@ -124,71 +127,71 @@ uint32_t current_offset;
 * Subscriber
 *******************************************************************************/
 ros::Subscriber<geometry_msgs::Twist> cmd_vel_sub("cmd_vel", commandVelocityCallback);
+
+ros::Subscriber<turtlebot3_msgs::Sound> sound_sub("sound", soundCallback);
+
+ros::Subscriber<std_msgs::Bool> motor_power_sub("motor_power", motorPowerCallback);
+
 ros::Subscriber<std_msgs::Empty> reset_sub("reset", resetCallback);
 
 /*******************************************************************************
 * Publisher
 *******************************************************************************/
-// Bumpers, cliffs, buttons, encoders, battery of Zetabank
-nscl_msgs::SensorState sensor_state_msg;
+// Bumpers, cliffs, buttons, encoders, battery of Turtlebot3
+turtlebot3_msgs::SensorState sensor_state_msg;
 ros::Publisher sensor_state_pub("sensor_state", &sensor_state_msg);
 
-// Version information of Zetabank
-nscl_msgs::VersionInfo version_info_msg;
+// Version information of Turtlebot3
+turtlebot3_msgs::VersionInfo version_info_msg;
 ros::Publisher version_info_pub("version_info", &version_info_msg);
 
-// IMU of Zetabank
+// IMU of Turtlebot3
 sensor_msgs::Imu imu_msg;
 ros::Publisher imu_pub("imu", &imu_msg);
 
-// Odometry of Zetabank
+// Command velocity of Turtlebot3 using RC100 remote controller
+geometry_msgs::Twist cmd_vel_rc100_msg;
+ros::Publisher cmd_vel_rc100_pub("cmd_vel_rc100", &cmd_vel_rc100_msg);
+
+// Odometry of Turtlebot3
 nav_msgs::Odometry odom;
 ros::Publisher odom_pub("odom", &odom);
 
-// Joint(Dynamixel) state of Zetabank
+// Joint(Dynamixel) state of Turtlebot3
 sensor_msgs::JointState joint_states;
 ros::Publisher joint_states_pub("joint_states", &joint_states);
 
-// Battey state of Zetabank
+// Battey state of Turtlebot3
 sensor_msgs::BatteryState battery_state_msg;
 ros::Publisher battery_state_pub("battery_state", &battery_state_msg);
 
-// Ultrasonic sensor of Zetabank
-sensor_msgs::Range sonar_msg;
-ros::Publisher sonar_pub("sonar", &sonar_msg);
-
-
-
-/*******************************************************************************
-* For debugging
-*******************************************************************************/ 
-std_msgs::Float64 left_vel_msg;
-ros::Publisher left_vel_pub("left_vel", &left_vel_msg);
-std_msgs::Float64 right_vel_msg;
-ros::Publisher right_vel_pub("right_vel", &right_vel_msg);
+// Magnetic field
+sensor_msgs::MagneticField mag_msg;
+ros::Publisher mag_pub("magnetic_field", &mag_msg);
 
 /*******************************************************************************
 * Transform Broadcaster
 *******************************************************************************/
-// TF of Zetabank
+// TF of Turtlebot3
 geometry_msgs::TransformStamped odom_tf;
 tf::TransformBroadcaster tf_broadcaster;
 
 /*******************************************************************************
-* SoftwareTimer of Zetabank
+* SoftwareTimer of Turtlebot3
 *******************************************************************************/
 static uint32_t tTime[5];
 
+/*******************************************************************************
+* Declaration for motor
+*******************************************************************************/
+Turtlebot3MotorDriver motor_driver;
 
 /*******************************************************************************
 * Calculation for odometry
 *******************************************************************************/
 bool init_encoder = true;
-int32_t g_last_diff_tick[WHEEL_NUM] = {0.0, 0.0};
-double  g_last_rad[WHEEL_NUM]       = {0.0, 0.0};
-
-void updateMotorInfo(int32_t left_tick, int32_t right_tick);
-
+int32_t last_diff_tick[WHEEL_NUM] = {0.0, 0.0};
+double  last_rad[WHEEL_NUM]       = {0.0, 0.0};
 
 /*******************************************************************************
 * Update Joint State
@@ -198,16 +201,21 @@ double  last_velocity[WHEEL_NUM]  = {0.0, 0.0};
 /*******************************************************************************
 * Declaration for sensors
 *******************************************************************************/
-NSCLSensor sensors;
-
+Turtlebot3Sensor sensors;
 
 /*******************************************************************************
 * Declaration for controllers
 *******************************************************************************/
+Turtlebot3Controller controllers;
 float goal_velocity[VELOCITY_UNIT] = {0.0, 0.0};
+float goal_velocity_from_button[VELOCITY_UNIT] = {0.0, 0.0};
 float goal_velocity_from_cmd[VELOCITY_UNIT] = {0.0, 0.0};
+float goal_velocity_from_rc100[VELOCITY_UNIT] = {0.0, 0.0};
 
-
+/*******************************************************************************
+* Declaration for diagnosis
+*******************************************************************************/
+Turtlebot3Diagnosis diagnosis;
 
 /*******************************************************************************
 * Declaration for SLAM and navigation
@@ -216,93 +224,10 @@ unsigned long prev_update_time;
 float odom_pose[3];
 double odom_vel[3];
 
-
 /*******************************************************************************
 * Declaration for Battery
 *******************************************************************************/
 bool setup_end        = false;
 uint8_t battery_state = 0;
 
-
-
-/*******************************************************************************
-* Declaration for Zetabank
-*******************************************************************************/
-/*******************************************************************************
-* Encoder of Zetabank 
-*******************************************************************************/
-int8_t enc_cnt;
-long unsigned int n_left_enc_A_pulse;
-long unsigned int n_left_enc_B_pulse;
-long unsigned int n_left_enc_A_pulse_mean;
-long unsigned int n_left_enc_B_pulse_mean;
-long unsigned int n_right_enc_A_pulse;
-long unsigned int n_right_enc_B_pulse;
-long unsigned int n_right_enc_A_pulse_mean;
-long unsigned int n_right_enc_B_pulse_mean;
-
-unsigned int n_left_odom_A_cnt;
-unsigned int n_left_odom_B_cnt;
-unsigned int n_right_odom_A_cnt;
-unsigned int n_right_odom_B_cnt;
-
-void left_EncoderRead_A();
-void left_EncoderRead_B();
-void right_EncoderRead_A();
-void right_EncoderRead_B();
-
-void timerInterrupt(); 
-
-bool writeVelocity(float left_vel, float right_vel);
-
-
-/*******************************************************************************
-* Ultrasonic of Zetabank 
-*******************************************************************************/
-bool ultra_flg;
-
-void ultrasonic_check();
-void ultrasonic_setup();
-
-
-
-/*******************************************************************************
-* PWM of Zetabank 
-*******************************************************************************/
-bool left_dir_flg;
-bool right_dir_flg;
-
-float duty_ratio;
-float Kp;
-float P_controll;
-float pid_value, P_control, left_pid_val, right_pid_val;
-
-float left_wheel_linear_vel;
-float left_wheel_vel_err;
-
-float right_wheel_linear_vel;
-float right_wheel_vel_err;
-
-void pwm_setup();
-float pid_control(uint8_t side, float ref_vel);
-void motor_pwm(uint8_t side, int8_t duty_ratio);
-bool controlMotor(const float wheel_separation, float* value);
-/*******************************************************************************
-
-*******************************************************************************/
-
-
-
-/*******************************************************************************
-* For safety
-*******************************************************************************/ 
-
-void network_disconnect();
-void resetGoalVelocity();
-
-
-/*******************************************************************************
-
-*******************************************************************************/
-
-#endif // ZETABANK_CORE_CONFIG_H_
+#endif // TURTLEBOT3_CORE_CONFIG_H_
