@@ -283,7 +283,7 @@ float left_wheel_vel_err;
 float right_wheel_linear_vel;
 float right_wheel_vel_err;
 
-void pwm_setup();
+void motor_setup();
 float pid_control(uint8_t side, float ref_vel);
 void motor_pwm(uint8_t side, int8_t duty_ratio);
 bool controlMotor(const float wheel_separation, float* value);

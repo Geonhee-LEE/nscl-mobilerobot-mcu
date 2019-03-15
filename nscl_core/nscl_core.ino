@@ -50,21 +50,18 @@ void setup()
 
     // Setting for SLAM and navigation (odometry, joint states, TF)
     initOdom();
-
     initJointStates();
 
     prev_update_time = millis();
 
-    
     // For voltage check
     setup_end = true;
 
     // Setting additional functions
     encoder_setup();
     timer_setup();
-    pwm_setup();
-    ultrasonic_setup();
-
+    motor_setup();
+    //ultrasonic_setup();
 }
 
 /*******************************************************************************
@@ -79,13 +76,11 @@ void loop()
     {
         updateTime();
         updateVariable();
-        
         if ((t - tTime[0]) >= (1000 / CONTROL_MOTOR_SPEED_PERIOD))  //CONTROL_MOTOR_SPEED_PERIOD와 같은 Hz 재정의 필요!
         {
             // Subscribe cmd_vel and control motors
             updateGoalVelocity();
             controlMotor(WHEEL_SEPARATION, goal_velocity);
-
             tTime[0] = t;
         }
         if ((t - tTime[1]) >= (1000 / CMD_VEL_PUBLISH_PERIOD)) 
@@ -110,19 +105,15 @@ void loop()
         {
             tTime[4] = t;
         }
-
         // Update the IMU unit
         sensors.updateIMU();
 
         // Start Gyro Calibration after ROS connection
         updateGyroCali();
-
-        // Update Voltage check
     }
     else
     {
         network_disconnect();
-
     }
 
     // Call all the callbacks waiting to be called at that point in time
@@ -145,7 +136,6 @@ void updateVariable(void)
         {
             sensors.initIMU();
             initOdom();
-
             variable_flag = true;
         }
     } 
@@ -183,7 +173,8 @@ ros::Time addMicros(ros::Time & t, uint32_t _micros)
     sec  = _micros / 1000000 + t.sec;
     nsec = _micros % 1000000 + 1000 * (t.nsec / 1000);
 
-    if (nsec >= 1e9) {
+    if (nsec >= 1e9) 
+    {
         sec++,
         nsec--;
     }
@@ -204,12 +195,9 @@ void updateGyroCali(void)
         {
             sprintf(log_msg, "Start Calibration of Gyro");
             nh.loginfo(log_msg);
-
             sensors.calibrationGyro();
-
             sprintf(log_msg, "Calibration End");
             nh.loginfo(log_msg);
-
             isEnded = true;
         }
     } 
@@ -232,12 +220,10 @@ void initOdom(void)
     odom.pose.pose.position.x    = 0.0;
     odom.pose.pose.position.y    = 0.0;
     odom.pose.pose.position.z    = 0.0;
-
     odom.pose.pose.orientation.x = 0.0;
     odom.pose.pose.orientation.y = 0.0;
     odom.pose.pose.orientation.z = 0.0;
     odom.pose.pose.orientation.w = 0.0;
-
     odom.twist.twist.linear.x    = 0.0;
     odom.twist.twist.angular.z   = 0.0;
 }
@@ -289,14 +275,10 @@ void resetCallback(const std_msgs::Empty & reset_msg)
 
     sprintf(log_msg, "Start Calibration of Gyro");
     nh.loginfo(log_msg);
-
     sensors.calibrationGyro();
-
     sprintf(log_msg, "Calibration End");
     nh.loginfo(log_msg);
-
     initOdom();
-
     sprintf(log_msg, "Reset Odometry");
     nh.loginfo(log_msg);
 }
@@ -307,10 +289,8 @@ void resetCallback(const std_msgs::Empty & reset_msg)
 void publishImuMsg(void) 
 {
     imu_msg                 = sensors.getIMU();
-
     imu_msg.header.stamp    = rosNow();
     imu_msg.header.frame_id = "imu_link";
-
     imu_pub.publish(& imu_msg);
 }
 
@@ -323,10 +303,8 @@ void publishSensorStateMsg(void)
     // ************** Info of Time ************** //
     sensor_state_msg.header.stamp = rosNow();
 
-    
     // ************** Info of Voltage ************** //
     //sensor_state_msg.battery      = checkVoltage();
-
 
     // ************** Info of Encoder************** //
     if (left_dir_flg == FORWARD_DIR && right_dir_flg == FORWARD_DIR) 
@@ -607,14 +585,16 @@ bool controlMotor(const float wheel_separation, float * value)
 }
 
 
-void pwm_setup() 
+void motor_setup() 
 {
 
     left_dir_flg  = FORWARD_DIR;
     right_dir_flg = FORWARD_DIR;
 
-    pinMode(12, OUTPUT); //setting left direction pin
-    pinMode(10, OUTPUT); //setting right direction pin
+    pinMode(10, OUTPUT); //setting left direction pin CCW
+    pinMode(12, OUTPUT); //setting left direction pin CW
+    pinMode(1, OUTPUT); //setting right direction pin CCW
+    pinMode(2, OUTPUT); //setting right direction pin CW
 }
 
 bool writeVelocity(float left_vel, float right_vel) 
@@ -698,18 +678,19 @@ float pid_control(uint8_t side, float ref_vel)
     
 void motor_pwm(uint8_t side, float duty_ratio) 
 {
-
         //BLDC Motor need a 130 value of pwm at least
         if (side == LEFT) 
         { // Left wheel
             if (duty_ratio < 0) 
             { //BACKWARD_DIR
-                digitalWrite(12, HIGH); // direction of left 
+                digitalWrite(10, HIGH); // direction of left CCW
+                digitalWrite(12, LOW); // direction of left  CW
                 left_dir_flg = BACKWARD_DIR;
             } 
             else if (duty_ratio > 0) 
             { //FORWARD_DIR
-                digitalWrite(12, LOW);
+                digitalWrite(10, LOW);
+                digitalWrite(12, HIGH); // direction of left 
                 left_dir_flg = FORWARD_DIR;
             }
             analogWrite(11, abs(duty_ratio)); //first arg : pin number, second arg : duty_ratio. pwm of left
@@ -718,12 +699,14 @@ void motor_pwm(uint8_t side, float duty_ratio)
         { // Right wheel
             if (duty_ratio < 0) 
             { //BACKWARD_DIR
-                digitalWrite(10, LOW);  // direction of right
+                digitalWrite(1, HIGH);  // direction of right CCW
+                digitalWrite(2, LOW);  // direction of right CW
                 right_dir_flg = BACKWARD_DIR;
             } 
             else if (duty_ratio > 0) 
             { //FORWARD_DIR
-                digitalWrite(10, HIGH);
+                digitalWrite(1, LOW);  // direction of right CCW
+                digitalWrite(2, HIGH);  // direction of right CW
                 right_dir_flg = FORWARD_DIR;
             }
             analogWrite(9, abs(duty_ratio)); //first arg : pin number, second arg : duty_ratio. pwm of right
@@ -828,9 +811,9 @@ void timerInterrupt(void)
     n_left_enc_A_pulse_mean  += n_left_enc_A_pulse;
     n_left_enc_B_pulse_mean  += n_left_enc_B_pulse;
 
-    if (enc_cnt >= 1) 
+    if(enc_cnt >= 1) 
     {
-        //100ms 간격으로 속도 update, 3번마다 velocity update, mean /2.
+        //100ms 간격으로 속도 update, n번마다 velocity update, mean /2.
         if (left_dir_flg == FORWARD_DIR) 
             left_wheel_linear_vel = (n_left_enc_A_pulse_mean + n_left_enc_B_pulse_mean) * 0.5 * 0.000030691;
         else if (left_dir_flg == BACKWARD_DIR) 
@@ -929,7 +912,7 @@ void network_disconnect()
     controlMotor(WHEEL_SEPARATION, goal_velocity);
     
     // Check the obstacle using Ultrasonic sensors
-    ultrasonic_check();
+    //ultrasonic_check();
 
 }
 
@@ -938,6 +921,8 @@ void resetGoalVelocity()
     // Reset the goal velocities
     goal_velocity[LINEAR]  = 0.0f;
     goal_velocity[ANGULAR] = 0.0f;
+    goal_velocity_from_cmd[LINEAR]  = 0.0f;
+    goal_velocity_from_cmd[ANGULAR] = 0.0f;
 
 }
     
