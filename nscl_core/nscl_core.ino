@@ -102,14 +102,12 @@ void loop()
         }
         if ((t - tTime[3]) >= (1000 / IMU_PUBLISH_PERIOD)) 
         {
-            //update sonar
-            ultrasonic_check();
+            //update imu
+            publishImuMsg();
             tTime[3] = t;
         }
         if ((t - tTime[4]) >= (1000 / VERSION_INFORMATION_PUBLISH_PERIOD)) 
         {
-            //update imu
-            publishImuMsg();
             tTime[4] = t;
         }
 
@@ -431,7 +429,6 @@ void updateOdometry(void)
 void updateMotorInfo(int32_t left_tick, int32_t right_tick) 
 {
     // The period is 100ms
-
     int32_t current_tick                = 0;
     static int32_t last_tick[WHEEL_NUM] = { 0.0, 0.0};
 
@@ -526,6 +523,7 @@ bool calcOdometry(double diff_time)
     step_time = 0.0;
 
     step_time = diff_time; // dimension : [sec]
+    double step_freq = 1/step_time;
 
     if (step_time == 0) 
         return false;
@@ -538,7 +536,7 @@ bool calcOdometry(double diff_time)
     if (isnan(wheel_r)) 
         wheel_r = 0.0;
     
-    delta_s              = WHEEL_RADIUS * (wheel_r + wheel_l) / 2.0;
+    delta_s              = WHEEL_RADIUS * (wheel_r + wheel_l) * 0.50;
     theta                = WHEEL_RADIUS * (wheel_r - wheel_l) / WHEEL_SEPARATION;
     orientation          = sensors.getOrientation();
     theta                = atan2f(
@@ -548,15 +546,15 @@ bool calcOdometry(double diff_time)
 
     delta_theta          = theta - last_theta;
 
-    v                    = delta_s / step_time;
-    w                    = delta_theta / step_time;
+    v                    = delta_s * step_freq;
+    w                    = delta_theta * step_freq;
 
-    last_velocity[LEFT]  = wheel_l / step_time;
-    last_velocity[RIGHT] = wheel_r / step_time;
+    last_velocity[LEFT]  = wheel_l * step_freq;
+    last_velocity[RIGHT] = wheel_r * step_freq;
 
     // compute odometric pose
-    odom_pose[0]         += delta_s * cos(odom_pose[2] + (delta_theta / 2.0));
-    odom_pose[1]         += delta_s * sin(odom_pose[2] + (delta_theta / 2.0));
+    odom_pose[0]         += delta_s * cos(odom_pose[2] + (delta_theta * 0.50));
+    odom_pose[1]         += delta_s * sin(odom_pose[2] + (delta_theta * 0.50));
     odom_pose[2]         += delta_theta;
 
     // compute odometric instantaneouse velocity
@@ -818,6 +816,10 @@ void timerInterrupt(void)
     Serial.print("Linear Velocity :");
     Serial.println(wheegl_linear_vel); // [meter/sec]
     v = R*w = 0.0812 [m] * ( * n_pulse * 0.2929 ) [deg/sec] * ( 2 PI / 360 )[rad/deg]
+
+    // NSCLbot
+    //1000 * 26 cnt = 1 round, 1 cnt = (360 / 26000) = 0.013846154 deg
+    v = R*w = 0.127 [m] * ( * n_pulse * 0.013846154  ) [deg/sec] * ( 2 PI / 360 )[rad/deg] = 0.000030691
     */
     enc_cnt++;
 
@@ -830,14 +832,15 @@ void timerInterrupt(void)
     {
         //100ms 간격으로 속도 update, 3번마다 velocity update, mean /2.
         if (left_dir_flg == FORWARD_DIR) 
-            left_wheel_linear_vel = (n_left_enc_A_pulse_mean + n_left_enc_B_pulse_mean) * 0.5 * 0.000207547;
+            left_wheel_linear_vel = (n_left_enc_A_pulse_mean + n_left_enc_B_pulse_mean) * 0.5 * 0.000030691;
         else if (left_dir_flg == BACKWARD_DIR) 
-            left_wheel_linear_vel = -((n_left_enc_A_pulse_mean + n_left_enc_B_pulse_mean) * 0.5 * 0.000207547);
+            left_wheel_linear_vel = -((n_left_enc_A_pulse_mean + n_left_enc_B_pulse_mean) * 0.5 * 0.0000306917);
             
         if (right_dir_flg == FORWARD_DIR) 
-            right_wheel_linear_vel = (n_right_enc_A_pulse_mean + n_right_enc_B_pulse_mean) * 0.5 * 0.000207547;
+            right_wheel_linear_vel = (n_right_enc_A_pulse_mean + n_right_enc_B_pulse_mean) * 0.5 * 0.000030691;
         else if (right_dir_flg == BACKWARD_DIR) 
-            right_wheel_linear_vel = -((n_right_enc_A_pulse_mean + n_right_enc_B_pulse_mean) * 0.5 * 0.000207547);
+            right_wheel_linear_vel = -((n_right_enc_A_pulse_mean + n_right_enc_B_pulse_mean) * 0.5 * 0.000030691);
+
             
             right_vel_msg.data = right_wheel_linear_vel;
             right_vel_pub.publish(& right_vel_msg);

@@ -53,8 +53,8 @@
 #define VERSION_INFORMATION_PUBLISH_PERIOD  1    //hz 
 
 #define WHEEL_NUM                        2
-#define WHEEL_RADIUS                     0.0812           // meter
-#define WHEEL_SEPARATION                 0.360           // meter (BURGER : 0.160, WAFFLE : 0.287, zetabank : 0.360)
+#define WHEEL_RADIUS                     0.127           // 10-Inch diameter[meter]
+#define WHEEL_SEPARATION                 0.660           // nscl : 0.660[meter]
 #define ENCODER_MIN                      -2147483648     // raw
 #define ENCODER_MAX                      2147483648      // raw
 
@@ -74,7 +74,7 @@
 
 #define VELOCITY_UNIT                    2
 
-#define LINEAR_X_MAX_VELOCITY            1.5
+#define LINEAR_X_MAX_VELOCITY            2.0
 
 #define PI 3.141592f
 #define FORWARD_DIR true
