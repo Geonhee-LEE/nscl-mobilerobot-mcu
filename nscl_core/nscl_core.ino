@@ -630,10 +630,12 @@ float pid_control(uint8_t side, float ref_vel)
             P_control    = Kp * left_wheel_vel_err;
             left_pid_val += P_control;
 
-            if (ref_vel > 0 && left_pid_val < 130) 
-                left_pid_val = 130;
-            else if (ref_vel < 0 && left_pid_val > -130) 
-                left_pid_val = -130;
+
+            //For dead zone
+            if (ref_vel > 0 && left_pid_val < 10) 
+                left_pid_val = 10;
+            else if (ref_vel < 0 && left_pid_val > -10) 
+                left_pid_val = -10;
             
             pid_value = left_pid_val;
 
@@ -652,10 +654,11 @@ float pid_control(uint8_t side, float ref_vel)
             P_control     = Kp * right_wheel_vel_err;
             right_pid_val += P_control;
 
-            if (ref_vel > 0 && right_pid_val < 130) 
-                right_pid_val = 130;
-            else if (ref_vel < 0 && right_pid_val > -130) 
-                right_pid_val = -130;
+            //For dead zone
+            if (ref_vel > 0 && right_pid_val < 10) 
+                right_pid_val = 10;
+            else if (ref_vel < 0 && right_pid_val > -10) 
+                right_pid_val = -10;
             
             pid_value = right_pid_val;
         }
@@ -723,8 +726,7 @@ void timer_setup()
     Timer.stop();
     Timer.setPeriod(100000); // in microseconds, 100000us -> 100ms
     Timer.attachInterrupt(timerInterrupt);
-    Timer.start();
-    
+    Timer.start();    
 }
 
 void encoder_setup() 
@@ -798,11 +800,11 @@ void timerInterrupt(void)
 
     Serial.print("Linear Velocity :");
     Serial.println(wheegl_linear_vel); // [meter/sec]
-    v = R*w = 0.0812 [m] * ( * n_pulse * 0.2929 ) [deg/sec] * ( 2 PI / 360 )[rad/deg]
+    v = R*w = 0.0812 [m] * ( n_pulse * 0.2929 ) [deg/sec] * ( 2 PI / 360 )[rad/deg]
 
     // NSCLbot
     //1000 * 26 cnt = 1 round, 1 cnt = (360 / 26000) = 0.013846154 deg
-    v = R*w = 0.127 [m] * ( * n_pulse * 0.013846154  ) [deg/sec] * ( 2 PI / 360 )[rad/deg] = 0.000030691
+    v = R*w * 10(100msec->1sec) = 0.127 [m] * ( n_pulse * 0.013846154  ) [deg/sec] * ( 2 PI / 360 )[rad/deg] * 10= 0.00030691
     */
     enc_cnt++;
 
@@ -815,14 +817,14 @@ void timerInterrupt(void)
     {
         //100ms 간격으로 속도 update, n번마다 velocity update, mean /2.
         if (left_dir_flg == FORWARD_DIR) 
-            left_wheel_linear_vel = (n_left_enc_A_pulse_mean + n_left_enc_B_pulse_mean) * 0.5 * 0.000030691;
+            left_wheel_linear_vel = (n_left_enc_A_pulse_mean + n_left_enc_B_pulse_mean) * 0.5 * 0.00030691;
         else if (left_dir_flg == BACKWARD_DIR) 
-            left_wheel_linear_vel = -((n_left_enc_A_pulse_mean + n_left_enc_B_pulse_mean) * 0.5 * 0.0000306917);
+            left_wheel_linear_vel = -((n_left_enc_A_pulse_mean + n_left_enc_B_pulse_mean) * 0.5 * 0.000306917);
             
         if (right_dir_flg == FORWARD_DIR) 
-            right_wheel_linear_vel = (n_right_enc_A_pulse_mean + n_right_enc_B_pulse_mean) * 0.5 * 0.000030691;
+            right_wheel_linear_vel = (n_right_enc_A_pulse_mean + n_right_enc_B_pulse_mean) * 0.5 * 0.00030691;
         else if (right_dir_flg == BACKWARD_DIR) 
-            right_wheel_linear_vel = -((n_right_enc_A_pulse_mean + n_right_enc_B_pulse_mean) * 0.5 * 0.000030691);
+            right_wheel_linear_vel = -((n_right_enc_A_pulse_mean + n_right_enc_B_pulse_mean) * 0.5 * 0.00030691);
 
             
             right_vel_msg.data = right_wheel_linear_vel;
