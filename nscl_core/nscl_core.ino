@@ -591,8 +591,10 @@ void motor_setup()
     left_dir_flg  = FORWARD_DIR;
     right_dir_flg = FORWARD_DIR;
 
+    pinMode(6, OUTPUT); //setting left Break
     pinMode(10, OUTPUT); //setting left direction pin CCW
     pinMode(12, OUTPUT); //setting left direction pin CW
+    pinMode(0, OUTPUT); //setting right Break
     pinMode(1, OUTPUT); //setting right direction pin CCW
     pinMode(2, OUTPUT); //setting right direction pin CW
 }
@@ -662,21 +664,39 @@ float pid_control(uint8_t side, float ref_vel)
             
             pid_value = right_pid_val;
         }
-
+ 
         if (ref_vel == 0) 
         {
             right_pid_val = 0;
             left_pid_val  = 0;
+            
+            digitalWrite(0, LOW); // Right break ON
+            digitalWrite(6, LOW); // Left break ON
             return 0;
         } 
         else if (-255 <= pid_value && pid_value <= 0) 
+        {
+            digitalWrite(0, HIGH); // Right break OFF
+            digitalWrite(6, HIGH); // Left break OFF
+        
             return pid_value;
+        }
         else if (255 >= pid_value && pid_value >= 0) 
-            return pid_value;
+        {            
+          digitalWrite(0, HIGH); // Right break OFF
+          digitalWrite(6, HIGH); // Left break OFF
+          return pid_value;
+        }
         else if (pid_value < -255) 
-            return -255;
+        {
+          return -255;
+        }
         else if (pid_value > 255) 
-            return 255;
+        {
+          digitalWrite(0, HIGH); // Right break OFF
+          digitalWrite(6, HIGH); // Left break OFF       
+          return 255;
+        }
 }
     
 void motor_pwm(uint8_t side, float duty_ratio) 
